@@ -3,7 +3,7 @@ This is the code to analyse the data of the experiment to test a mixture model a
 
 In this repo you will find:
 
-The Stan code used for the three models of social categorisation.
-The code for the analyses.
+The Stan code used for the three models of social categorisation. </br>
+The code for the analyses. </br>
 The code for the Multinomial Logistic Regression in the Frequentist and Hierarchical Bayesian way.
 
