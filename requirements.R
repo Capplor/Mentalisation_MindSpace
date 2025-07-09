@@ -40,6 +40,7 @@ p_load(
   multcomp,      # Multiple comparisons and post-hoc testing
   mgcv,          # Generalized additive models (splines, smoothing)
   moments,       # Kurtosis and Skewness
+  mclust,        # ARI
 
   # Bayesian Modeling
   brms,          # Bayesian regression modeling using Stan backend
