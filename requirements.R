@@ -92,3 +92,5 @@ if (cmdstanr::cmdstan_version() == "") {
 
 # Final confirmation message
 message("✅ All required packages are installed and loaded. Check CmdStan with `cmdstanr::cmdstan_version()`.")
+rm(github_pkgs)
+rm(pkg)
