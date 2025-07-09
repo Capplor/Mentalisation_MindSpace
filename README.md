@@ -7,6 +7,13 @@ The Stan code used for the three models of social categorisation. </br>
 The code for the analyses. </br>
 The code for the Multinomial Logistic Regression in the Frequentist and Hierarchical Bayesian way.
 
+### 📄 Poster: **Who am I playing with?** Exploring a New Model of Social Categorisation in Mentalisation
+[Download PDF Poster](https://github.com/user-attachments/files/21144747/CSS.Poster.pdf)
+
+**Description**:  
+This academic poster titled " **Who am I playing with?** Exploring a New Model of Social Categorisation in Mentalisation" presents a study on how people understand what kind of person the other is through trait-based categorisation. The research uses Minecraft players and players' "stereotypes" to elicit their beliefs and test probabilistic models (e.g., mixture models) to formalize social inference. Visuals include trait clusters, bar plots, and a QR code to references. 
+
+
 <img src="https://github.com/user-attachments/assets/ff9a2664-2161-463d-bcb2-b085993f95a7" 
      alt="Academic poster titled 'MIND SPACE – Trait-Based Mentalisation and Categorisation in Minecraft'. 
      The poster explores how people infer others’ beliefs and intentions through social categorisation, using 
