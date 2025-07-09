@@ -54,7 +54,8 @@ p_load(
   # Expert Elicitation / Bayesian Support
   SHELF,         # Elicitation of expert priors (Sheffield Elicitation Framework)
   bridgesampling,# Model comparison via marginal likelihood estimation
-  shinystan      # Interactive diagnostics and visualizations for Stan models
+  shinystan,      # Interactive diagnostics and visualizations for Stan models
+  copula          # model copula for graphs
 )
 
 # Install & load GitHub packages with descriptions
