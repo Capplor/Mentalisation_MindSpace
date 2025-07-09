@@ -1,19 +1,41 @@
+#Import datasets if not run Main Data####
+theta <- read_excel("theta.xlsx")
+shape_org <- read_excel("shape_org.xlsx")
+shape_aes <- read_excel("shape_aes.xlsx")
+data<- readRDS("all_data_lists.rds")
+x<- data$data_k_0$x
+y<- data$data_k_0$y
+r_k<- data$data_k_0$rho
+r_one<- data$data_1$rho
+rm(data)
 # Define the simulate_copula function
 simulate_copula <- function(p, shapex, shapey, t, var_name) {
-  myCop <- normalCopula(param = as.numeric(p), dim = 2, dispstr = "un")
+  # Convert parameters to numeric if they aren't already
+  p <- as.numeric(p)
+  t <- as.numeric(t)
+  shapex <- as.numeric(shapex)
+  shapey <- as.numeric(shapey)
+  
+  myCop <- normalCopula(param = p, dim = 2, dispstr = "un")
   myMvd <- mvdc(
-    copula = myCop, margins = c("beta", "beta"),
+    copula = myCop, 
+    margins = c("beta", "beta"),
     paramMargins = list(
       list(shape1 = shapex[1], shape2 = shapex[2]),
       list(shape1 = shapey[1], shape2 = shapey[2])
     )
   )
   sim_cop <- as.data.frame(rMvdc(1000 * t, myMvd))
+  colnames(sim_cop) <- c("V1", "V2")
   sim_cop$var <- var_name
   return(sim_cop)
 }
 
 simulate_beta <- function(shapex, shapey, t, var_name){
+  t <- as.numeric(t)
+  shapex <- as.numeric(shapex)
+  shapey <- as.numeric(shapey)
+  
   # Create proper data frame structure
   data.frame(
     value = c(
@@ -57,8 +79,29 @@ for (i in 1:nrow(r_k)) {
     ggsci::scale_color_futurama() +
     geom_density2d() +
     geom_point() +
-    geom_hline(yintercept = y[i, 4], size = 1.3)+
-    geom_vline(xintercept = x[i, 4], size = 1.3)+
+    geom_hline(yintercept = y[i, 1], size = 1.15, color = "black")+
+    geom_vline(xintercept = x[i, 1], size = 1.15, color = "black")+
+    #geom_hline(yintercept = y[i, 2], size = 1.15, color = "#3288BD")+
+    #geom_vline(xintercept = x[i, 2], size = 1.15, color = "#3288BD")+
+    #geom_hline(yintercept = y[i, 3], size = 1.15, color = "#5E4FA2")+
+    #geom_vline(xintercept = x[i, 3], size = 1.15, color = "#5E4FA2")+
+    #geom_hline(yintercept = y[i, 4], size = 1.15, color = "#FF6348FF")+
+    #geom_vline(xintercept = x[i, 4], size = 1.15, color = "#FF6348FF")+
+    #geom_hline(yintercept = y[i, 5], size = 1.15, color = "#E6AB02")+
+    #geom_vline(xintercept = x[i, 5], size = 1.15, color = "#E6AB02")+
+    #geom_hline(yintercept = y[i, 6], size = 1.15, color = "#ADE2D0FF")+
+    #geom_vline(xintercept = x[i, 6], size = 1.15, color = "#ADE2D0FF")+
+    #geom_hline(yintercept = y[i, 7], size = 1.15, color = "#A6761D")+
+    #geom_vline(xintercept = x[i, 7], size = 1.15, color = "#A6761D")+
+    #geom_hline(yintercept = y[i, 8], size = 1.15, color = "#01665E")+
+    #geom_vline(xintercept = x[i, 8], size = 1.15, color = "#01665E")+
+    #geom_hline(yintercept = y[i, 9], size = 1.15, color = "#D53E4F")+
+    #geom_vline(xintercept = x[i, 9], size = 1.15, color = "#D53E4F")+
+    #geom_point(data = data.frame(x = x[i, ], y = y[i, ]),
+    #  aes(x = x, y = y), shape = 21,  # Circle with border
+    #  size = 4, fill = "white",
+    #  color = c("black", "#3288BD", "#5E4FA2", "#FF6348", "#E6AB02", 
+    #            "#ADE2D0", "#A6761D", "#01665E", "#D53E4F")[1:9])+
     theme_bw() +
     xlim(0, 1) + 
     ylim(0, 1) +
@@ -82,14 +125,14 @@ for (i in 1:nrow(r_k)) {
 
 # Single Correlation ####
 
-for (i in 1:nrow(r_one)) {
+for (i in 1:length(r_one)) {
   copula_results <- list()  # Reset results for each i
   
   # Inner loop for j
   for (j in 2:5) {
     # Simulate copula data for each variable
     copula_results[[variables[j - 1]]] <- simulate_copula(
-      p = r_one[i,2],
+      p = r_one[i],
       shapex = shape_aes[i, c((j * 2) - 1, j * 2)],
       shapey = shape_org[i, c((j * 2) - 1, j * 2)],
       t = theta[i, j - 1],
@@ -105,8 +148,29 @@ for (i in 1:nrow(r_one)) {
     ggsci::scale_color_futurama() +
     geom_density2d() +
     geom_point() +
-    geom_hline(yintercept = y[i, 4], size = 1.3)+
-    geom_vline(xintercept = x[i, 4], size = 1.3)+
+    geom_hline(yintercept = y[i, 1], size = 1.15, color="black")+
+    geom_vline(xintercept = x[i, 1], size = 1.15, color="black")+
+    #geom_hline(yintercept = y[i, 2], size = 1.15, color = "#3288BD")+
+    #geom_vline(xintercept = x[i, 2], size = 1.15, color = "#3288BD")+
+    #geom_hline(yintercept = y[i, 3], size = 1.15, color = "#5E4FA2")+
+    #geom_vline(xintercept = x[i, 3], size = 1.15, color = "#5E4FA2")+
+    #geom_hline(yintercept = y[i, 4], size = 1.15, color = "#FF6348FF")+
+    #geom_vline(xintercept = x[i, 4], size = 1.15, color = "#FF6348FF")+
+    #geom_hline(yintercept = y[i, 5], size = 1.15, color = "#E6AB02")+
+    #geom_vline(xintercept = x[i, 5], size = 1.15, color = "#E6AB02")+
+    #geom_hline(yintercept = y[i, 6], size = 1.15, color = "#ADE2D0FF")+
+    #geom_vline(xintercept = x[i, 6], size = 1.15, color = "#ADE2D0FF")+
+    #geom_hline(yintercept = y[i, 7], size = 1.15, color = "#A6761D")+
+    #geom_vline(xintercept = x[i, 7], size = 1.15, color = "#A6761D")+
+    #geom_hline(yintercept = y[i, 8], size = 1.15, color = "#01665E")+
+    #geom_vline(xintercept = x[i, 8], size = 1.15, color = "#01665E")+
+    #geom_hline(yintercept = y[i, 9], size = 1.15, color = "#D53E4F")+
+    #geom_vline(xintercept = x[i, 9], size = 1.15, color = "#D53E4F")+
+    #geom_point(data = data.frame(x = x[i, ], y = y[i, ]),
+    #  aes(x = x, y = y), shape = 21,  # Circle with border
+    #  size = 4, fill = "white",
+    #  color = c("black", "#3288BD", "#5E4FA2", "#FF6348", "#E6AB02", 
+    #            "#ADE2D0", "#A6761D", "#01665E", "#D53E4F")[1:9])+
     theme_bw() +
     xlim(0, 1) + 
     ylim(0, 1) +
