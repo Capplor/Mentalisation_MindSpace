@@ -94,3 +94,146 @@ if (cmdstanr::cmdstan_version() == "") {
 message("✅ All required packages are installed and loaded. Check CmdStan with `cmdstanr::cmdstan_version()`.")
 rm(github_pkgs)
 rm(pkg)
+
+
+# custom functions
+#Correlation perfect
+
+
+#Log Loss Formula
+log_loss <- function(p_true, p_pred) {
+  -sum(p_true * log(p_pred))
+}
+
+#RMSE function
+rmse <- function(p_true, p_pred) {
+  sqrt(mean((p_true - p_pred)^2))
+}
+
+#Cosine Similarity 
+
+cosine_similarity <- function(p_true, p_pred) {
+  sum(p_true * p_pred) / (sqrt(sum(p_true^2)) * sqrt(sum(p_pred^2)))
+}
+
+#KL Divergence
+
+kl_divergence <- function(p, q, epsilon = 1e-12) {
+  sum(p * log(p / q))
+}
+
+#Jensen-Shannon Divergence (JSD)
+
+js_divergence <- function(p, q) {
+  m <- 0.5*(p+q)
+  (0.5*sum(p * log(p / m)))+(0.5*sum(q * log(q / m)))
+}
+#Brier-Score Divergence (JSD)
+
+brier_score <- function(p, q) {
+  mean((p-q)^2)
+}
+
+
+#Summarise
+
+library(rlang)
+#Simpler summetrics
+#summetrics <- function(data, metric, ...) {
+#  data %>%
+#    group_by(...) %>% 
+#    summarise(
+#      mean   = mean({{ metric }}, na.rm = TRUE),
+#      median = median({{ metric }}, na.rm = TRUE),
+#      MAD    = mad({{ metric }}, na.rm = TRUE),
+#      iqr    = IQR({{ metric }}, na.rm = TRUE),
+#      sd     = sd({{ metric }}, na.rm = TRUE),
+#      n      = sum(!is.na({{ metric }})),
+#      se     = sd / sqrt(n),
+#      ci_lower = mean - qt(0.975, df = n - 1) * se,
+#      ci_upper = mean + qt(0.975, df = n - 1) * se,
+#      max    = max({{ metric }}, na.rm = TRUE),
+#      min    = min({{ metric }}, na.rm = TRUE),
+#      .groups = "drop"
+#    )
+#}
+
+summetrics <- function(data, metric, group_by = NULL, conf_level = 0.95) {
+  # Convert metric to symbol
+  metric_sym <- if (is.character(metric)) rlang::sym(metric) else rlang::ensym(metric)
+  
+  # Handle grouping
+  if (!is.null(group_by)) {
+    group_syms <- rlang::syms(group_by)
+    data <- data %>% dplyr::group_by(!!!group_syms)
+  }
+  
+  alpha <- 1 - conf_level
+  
+  # First calculate basic stats
+  summary_df <- data %>%
+    dplyr::summarise(
+      across(
+        .cols = !!metric_sym,
+        .fns = list(
+          mean = ~mean(.x, na.rm = TRUE),
+          median = ~median(.x, na.rm = TRUE),
+          MAD = ~mad(.x, na.rm = TRUE),
+          IQR = ~IQR(.x, na.rm = TRUE),
+          sd = ~sd(.x, na.rm = TRUE),
+          n = ~sum(!is.na(.x)),
+          max = ~max(.x, na.rm = TRUE),
+          min = ~min(.x, na.rm = TRUE),
+          coeff_var = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE),
+          skewness = ~moments::skewness(.x, na.rm = TRUE),
+          kurtosis = ~moments::kurtosis(.x, na.rm = TRUE)
+        ),
+        .names = "{.col}_{.fn}"
+      ),
+      .groups = "drop"
+    )
+  
+  # Then calculate SE and CI using the already computed stats
+  metric_name <- as.character(metric_sym)
+  
+  summary_df <- summary_df %>%
+    dplyr::mutate(
+      "{metric_name}_se" := .data[[paste0(metric_name, "_sd")]] / sqrt(.data[[paste0(metric_name, "_n")]]),
+      "{metric_name}_ci_lower" := .data[[paste0(metric_name, "_mean")]] - 
+        qt(1 - alpha/2, df = .data[[paste0(metric_name, "_n")]]-1) * .data[[paste0(metric_name, "_se")]],
+      "{metric_name}_ci_upper" := .data[[paste0(metric_name, "_mean")]] + 
+        qt(1 - alpha/2, df = .data[[paste0(metric_name, "_n")]]-1) * .data[[paste0(metric_name, "_se")]]
+    )
+  
+  return(summary_df)
+}
+
+# Define the simulate_copula function
+simulate_copula <- function(p, shapex, shapey, t, var_name) {
+  myCop <- normalCopula(param = as.numeric(p), dim = 2, dispstr = "un")
+  myMvd <- mvdc(
+    copula = myCop, margins = c("beta", "beta"),
+    paramMargins = list(
+      list(shape1 = shapex[1], shape2 = shapex[2]),
+      list(shape1 = shapey[1], shape2 = shapey[2])
+    )
+  )
+  sim_cop <- as.data.frame(rMvdc(1000 * t, myMvd))
+  sim_cop$var <- var_name
+  return(sim_cop)
+}
+# Define the simulate_beta function
+simulate_beta <- function(shapex, shapey, t, var_name){
+  # Create proper data frame structure
+  data.frame(
+    value = c(
+      rbeta(1000*t, shape1 = shapex[1], shape2 = shapex[2]),
+      rbeta(1000*t, shape1 = shapey[1], shape2 = shapey[2])
+    ),
+    dim = rep(c("Aesthetic Appreciation", "Organisation"), each = 1000*t),
+    var = var_name,
+    stringsAsFactors = FALSE
+  )
+}
+
+
