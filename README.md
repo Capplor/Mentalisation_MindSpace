@@ -1,7 +1,34 @@
-# Mentalisation_MindSpace
+# MindSpace: New Model of Social Categorisation in Mentalisation
 This is the code to analyse the data of the experiment to test a mixture model as cognitive model for social categorisation.
 
-In this repo you will find:
+This repo is made up of four branches:
+
+#### Main Branch: 
+- Scripts:
+     - Requirements: Packages and Functions needed for the project.
+     - Main Data: Code to have the cleaned dataset and variables to input. 
+     - Graph Simulator: Code to generate the poster graph representing participants elicited beliefs.
+     - Demographics: Code to run demographics.
+- Data:
+     - demo.xlsx demographics file ready to be analysed with demographics script,
+     - study1.xlsx necessary to run Main Data. Experiment datafile.
+     - shapes, theta, all_data_lists and final_Cluster xlsx files are for the Graph simulator, if you want to play around with the graphs without wanting to run main analyses
+
+#### Full Dataset Branch: 
+- Scripts:
+     - Main Models: Code to have run models and generate metrics. 
+     - Stan files are the models code, constrained are the hierarchical and general are the General priors ones.
+- Data:
+     - all_data_lists and w_pred.xlsx files are if you want to play around with the models without wanting to run main data.
+  
+#### Multinomial Regression Branch: 
+- Scripts:
+     - Main Multinomial Regression: Code to have run frequentist and Bayesian Analyses. 
+- Data:
+     - total_wide.xlsx files are if you want to play around with the models without wanting to run main data.
+
+#### Multinomial Regression Branch: 
+- TBA
 
 The Stan code used for the three models of social categorisation. </br>
 The code for the analyses. </br>
