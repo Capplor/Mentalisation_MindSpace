@@ -211,26 +211,37 @@ summetrics <- function(data, metric, group_by = NULL, conf_level = 0.95) {
 }
 
 # Define the simulate_copula function
-simulate_copula <- function(p, shapex, shapey, t, var_name) {
-  myCop <- normalCopula(param = as.numeric(p), dim = 2, dispstr = "un")
+simulate_copula <- function(n, p, shapex, shapey, t, var_name) {
+  p <- as.numeric(p)
+  t <- as.numeric(t)
+  shapex <- as.numeric(shapex)
+  shapey <- as.numeric(shapey)
+  
+  myCop <- normalCopula(param = p, dim = 2, dispstr = "un")
   myMvd <- mvdc(
-    copula = myCop, margins = c("beta", "beta"),
+    copula = myCop, 
+    margins = c("beta", "beta"),
     paramMargins = list(
       list(shape1 = shapex[1], shape2 = shapex[2]),
       list(shape1 = shapey[1], shape2 = shapey[2])
     )
   )
-  sim_cop <- as.data.frame(rMvdc(1000 * t, myMvd))
+  sim_cop <- as.data.frame(rMvdc(n * t, myMvd))
+  colnames(sim_cop) <- c("V1", "V2")
   sim_cop$var <- var_name
   return(sim_cop)
 }
-# Define the simulate_beta function
-simulate_beta <- function(shapex, shapey, t, var_name){
+
+simulate_beta <- function(n, shapex, shapey, t, var_name){
+  t <- as.numeric(t)
+  shapex <- as.numeric(shapex)
+  shapey <- as.numeric(shapey)
+  
   # Create proper data frame structure
   data.frame(
     value = c(
-      rbeta(1000*t, shape1 = shapex[1], shape2 = shapex[2]),
-      rbeta(1000*t, shape1 = shapey[1], shape2 = shapey[2])
+      rbeta(n*t, shape1 = shapex[1], shape2 = shapex[2]),
+      rbeta(n*t, shape1 = shapey[1], shape2 = shapey[2])
     ),
     dim = rep(c("Aesthetic Appreciation", "Organisation"), each = 1000*t),
     var = var_name,
