@@ -27,7 +27,7 @@ This repo is made up of four branches:
 - Data:
      - total_wide.xlsx files are if you want to play around with the models without wanting to run main data.
 
-#### Multinomial Regression Branch: 
+#### Alternative Dataset Branch: 
 - TBA
 
 ### 📄 Poster: **Who am I playing with?** Exploring a New Model of Social Categorisation in Mentalisation
