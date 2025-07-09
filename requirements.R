@@ -47,6 +47,7 @@ p_load(
   rstan,         # Direct interface to Stan for advanced modeling
   rstanarm,      # Stan-based regression models with familiar `lm`/`glm` syntax
   marginaleffects, # Compute and visualize marginal effects from models
+  tidybayes,     # Summary and visualisation for brms models.
 
   # Expert Elicitation / Bayesian Support
   SHELF,         # Elicitation of expert priors (Sheffield Elicitation Framework)
