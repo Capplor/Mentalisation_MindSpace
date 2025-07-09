@@ -243,10 +243,10 @@ for(f in colop){
 
 # Replace 1s ####
 study1 <- study1 %>%
-  mutate(across(149:198, ~ replace(., . == 1, 0.7))) # to include only when p[4]< 0.6
+  mutate(across(148:197, ~ replace(., . == 1, 0.7))) # to include only when p[4]< 0.6
 
 
-range(study1[,149:198])
+range(study1[,148:197])
 
 colnames(study1)
 
@@ -255,8 +255,8 @@ rm(aes_cumulative,org_cumulative,aes_cumulativeb,org_cumulativeb,
    org_cumulativec,aes_cumulativep,org_cumulativep)
 # Fitting distributions ####
 
-initial_number_aes<-c(149,159,169,179,189)
-initial_number_org<-c(154,164,174,184,194)
+initial_number_aes<-c(148,158,168,178,188)
+initial_number_org<-c(153,163,173,183,193)
 
 alpha_aes<-matrix(nrow=nrow(study1),ncol=5)
 beta_aes<-matrix(nrow=nrow(study1),ncol=5)

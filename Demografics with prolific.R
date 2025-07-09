@@ -68,7 +68,7 @@ eup<-ggplot(data = euro, aes(x = long, y = lat, group = group, fill = Freq)) +
     fontface = "italic"    # italic text
   ) +
   coord_fixed(1.3) +
-  scale_fill_gradient(low = "#008EA0FF", high = "#8A4198FF", na.value = "grey90") +
+  ggplot2::scale_fill_gradient(low = "#008EA0FF", high = "#8A4198FF", na.value = "grey90") +
   labs(title = "Nationalities in Dataset",
        fill = "Count") +
   theme_classic()+
@@ -102,7 +102,7 @@ afrp<-ggplot(data = africa, aes(x = long, y = lat, group = group, fill = Freq)) 
     fontface = "italic"    # italic text
   ) +
   coord_fixed(1.3) +
-  scale_fill_gradient(low = "#008EA0FF", high = "#8A4198FF", na.value = "grey90") +
+  ggplot2::scale_fill_gradient(low = "#008EA0FF", high = "#8A4198FF", na.value = "grey90") +
   theme_classic()+
   theme(axis.title = element_blank(),
         title = element_blank(),
@@ -137,7 +137,7 @@ noamp<-ggplot(data = noam, aes(x = long, y = lat, group = group, fill = Freq)) +
     fontface = "italic"    # italic text
   ) +
   coord_fixed(1.3) +
-  scale_fill_gradient(low = "#008EA0FF", high = "#8A4198FF", na.value = "grey90") +
+  ggplot2::scale_fill_gradient(low = "#008EA0FF", high = "#8A4198FF", na.value = "grey90") +
   xlim(-180, -48) +
   theme_classic()+
   theme(axis.title = element_blank(),
