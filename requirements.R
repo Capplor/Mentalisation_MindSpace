@@ -39,6 +39,7 @@ p_load(
   psych,         # Psychometric tools (e.g., correlation, describe)
   multcomp,      # Multiple comparisons and post-hoc testing
   mgcv,          # Generalized additive models (splines, smoothing)
+  moments,       # Kurtosis and Skewness
 
   # Bayesian Modeling
   brms,          # Bayesian regression modeling using Stan backend
