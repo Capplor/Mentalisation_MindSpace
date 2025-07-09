@@ -1019,13 +1019,15 @@ combined_all <- combined_all %>%
   )
 cor_summary <- combined_all %>%
   group_by(model, hier) %>%
-  summetrics(correlation)
+  summetrics("correlation")
 
 # Plot
-ggplot(cor_summary, aes(x = hier, y = mean, fill = model)) +
+ggplot(cor_summary, aes(x = hier, y = correlation_mean, fill = model)) +
   geom_bar(stat = "identity", position = "dodge") +
   ggsci::scale_fill_futurama() +
-  geom_errorbar(aes(ymin = mean - se, ymax = mean + se), width = 0.2) +
+  geom_errorbar(aes(ymin = correlation_mean - correlation_se, 
+                    ymax = correlation_mean + correlation_se), 
+                width = 0.2) +
   facet_grid(model~., scales = "free_y", space = "free") +
   labs(
     y = "Mean Correlation",
@@ -1066,6 +1068,7 @@ loo_gen_zero$estimates
 
 # LOO & Plots ####
 # Create lists of models for comparison
+# Create lists of models for comparison
 model_groups <- list(
   hierarchical = list(loo_kcorr_h, loo_1corr_h, loo_zero),
   general = list(loo_gen_kcorr, loo_gen_1corr, loo_gen_zero)
@@ -1077,29 +1080,25 @@ model_names <- list(
   general = c("Cluster ρ", "General ρ", "No ρ")
 )
 
-# Compare models in each group
-comparisons <- lapply(names(model_groups), function(group_name) {
-  group_models <- model_groups[[group_name]]
-  names(group_models) <- model_names[[group_name]]  # name models
-  
-  comp <- loo_compare(group_models[[1]], group_models[[2]], group_models[[3]])
-  
-  as.data.frame(comp) %>%
-    rownames_to_column("model") %>%
-    mutate(
-      group = group_name,
-      model_type = model,
-      is_hierarchical = ifelse(group_name == "hierarchical", "Hierarchical", "General")
-    )
-})
+# 1. Combine all models into one list (if not already)
+all_models <- unlist(model_groups, recursive = FALSE)
+names(all_models) <- paste(rep(names(model_groups), each = 3), 
+                           unlist(model_names), sep = "_")
 
+# 3. Perform LOO comparison
+full_comparison <- loo::loo_compare(all_models)
 # Combine all comparisons
-full_comparison_df <- bind_rows(comparisons) %>%
-  mutate(model_type = factor(model_type, levels = c("Cluster ρ", "General ρ", "No ρ")))
+full_comparison_df <- as.data.frame(full_comparison) %>%
+  tibble::rownames_to_column("model") %>%
+  mutate(
+    group = gsub("_.*", "", model),
+    model_name = gsub(".*_", "", model)
+  ) %>%
+  dplyr::select(model, group, model_name, elpd_diff, se_diff, everything())
 
 full_comparison_df %>%
-  ggplot(aes(x = elpd_diff, y = reorder(model_type, elpd_diff),
-             color = is_hierarchical)) +
+  ggplot(aes(x = elpd_diff, y = reorder(model_name, elpd_diff),
+             color = group)) +
   geom_point(size = 3) +
   geom_errorbarh(aes(xmin = elpd_diff - se_diff, xmax = elpd_diff + se_diff),
                  height = 0.2) +
@@ -1116,7 +1115,7 @@ top_models <- full_comparison_df %>%
   group_by(group) %>%
   slice_max(order_by = elpd_diff, n = 3)
 
-print(top_models %>% select(group, model, elpd_diff, model_type))
+print(top_models %>% dplyr::select(group, model_name, elpd_diff, elpd_loo))
 
 # Ridgeplots ####
 
