@@ -1,9 +1,11 @@
-# Mentalisation_MindSpace
-This is the code to analyse the data of the experiment to test a mixture model as cognitive model for social categorisation.
+# Multinomial Logistic Regression
 
-In this repo you will find:
+Multinomial Regression Branch:
+- Scripts:
+  - Main Multinomial Regression: Code to have run frequentist and Bayesian Analyses.
+-  Data:
+  - total_wide.xlsx files are if you want to play around with the models without wanting to run main data.
 
-The Stan code used for the three models of social categorisation. </br>
-The code for the analyses. </br>
-The code for the Multinomial Logistic Regression in the Frequentist and Hierarchical Bayesian way.
+#### **Note**
 
+Builder is the reference category. As this is not the main focus of our research, we did not explore the models with the alternative player types as reference category. This is something to explore if you are interested.
