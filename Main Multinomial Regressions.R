@@ -297,6 +297,13 @@ bridge_results <- lapply(models, bridge_sampler)
 bf_results <- sapply(names(bridge_results), function(model) {
   bayes_factor(bridge_results[[model]], bridge_results$xy_int)
 })
+
+# Compute LOO for each model
+loo_results <- lapply(models, loo)
+
+# Compare models using LOO
+loo_comparison <- loo_compare(loo_results)
+
 # For model comparison, use loo_compare
 comparison <- loo_compare(loo_results)
 
