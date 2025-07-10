@@ -313,20 +313,6 @@ print(comparison, simplify = FALSE)
 # Optional: Plot the comparison
 plot(comparison)
 
-yrep_xy_int <- posterior_predict(models$xy_int, draws = 100)
-yrep_xyt <- posterior_predict(models$xyt, draws = 100)
-yrep_xyslopeT <- posterior_predict(models$xyslopeT, draws = 100)
-yrep_xyn <- posterior_predict(models$xyn, draws = 100)
-
-p1 <- ppc_dens_overlay(y = as.numeric(total_wide[, 8]), yrep = yrep_xy_int) + 
-  ggtitle("x * y + (1 | participant)")
-p2 <- ppc_dens_overlay(y = as.numeric(total_wide[, 8]), yrep = yrep_xyt) + 
-  ggtitle("x + y + (1 | participant) + (1 | N)")
-p3 <- ppc_dens_overlay(y = as.numeric(total_wide[, 8]), yrep = yrep_xyslopeT) + 
-  ggtitle("x * y + (x * y | participant) + (1 | N)")
-p4 <- ppc_dens_overlay(y = as.numeric(total_wide[, 8]), yrep = yrep_xyn) + 
-  ggtitle("x * y + (x * y | participant) ")
-
 # Plots ####
 
 plot_predictions(fit_hierarchical_xy_intt, condition = c("x", "y"), type = "response") +
@@ -352,36 +338,39 @@ ranef(fit_hierarchical_xy_intt)$participant[,,"mucompetitor_Intercept"] |>
   ggplot(aes(y = participant, x = Estimate)) +
   geom_errorbar(aes(xmin = `Q2.5`, xmax = `Q97.5`), 
                 color = "darkgrey", alpha = 0.7)+
-  geom_vline(aes(xintercept = 0), color = "black", 
+  geom_vline(aes(xintercept = 0), color = "#C71000FF", 
              size = 2, alpha = 0.8) +
-  geom_point(color = "red", size = 2)
+  geom_point(color = "#008EA0FF", size = 2)
+
 ranef(fit_hierarchical_xy_intt)$participant[,,"muexplorer_Intercept"] |> 
   as.data.frame() |> 
   rownames_to_column("participant") |> 
   ggplot(aes(y = participant, x = Estimate)) +
   geom_errorbar(aes(xmin = `Q2.5`, xmax = `Q97.5`), 
                 color = "darkgrey", alpha = 0.7)+
-  geom_vline(aes(xintercept = 0), color = "black", 
+  geom_vline(aes(xintercept = 0), color = "#C71000FF", 
              size = 2, alpha = 0.8) +
-  geom_point(color = "red", size = 2)
+  geom_point(color = "#008EA0FF", size = 2)
+
 ranef(fit_hierarchical_xy_intt)$participant[,,"mupacifist_Intercept"] |> 
   as.data.frame() |> 
   rownames_to_column("participant") |> 
   ggplot(aes(y = participant, x = Estimate)) +
   geom_errorbar(aes(xmin = `Q2.5`, xmax = `Q97.5`), 
                 color = "darkgrey", alpha = 0.7)+
-  geom_vline(aes(xintercept = 0), color = "black", 
+  geom_vline(aes(xintercept = 0), color = "#C71000FF", 
              size = 2, alpha = 0.8) +
-  geom_point(color = "red", size = 2)
+  geom_point(color = "#008EA0FF", size = 2)
+
 
 fit_hierarchical_xy_intt |> 
   tidy_draws() |> 
-  select(starts_with("b")) |> 
+  dplyr::select(starts_with("b")) |> 
   pivot_longer(cols = everything()) |> 
   ggplot(aes(x = value, y = name)) +
-  tidybayes::stat_halfeye(fill = "skyblue") +
+  tidybayes::stat_halfeye(fill = "#FF6F00FF") +
   ylab("") +
-  geom_vline(aes(xintercept = 0), color = "darkred", size = 2)+
+  geom_vline(aes(xintercept = 0), color = "#C71000FF", size = 2)+
   theme_classic()
 
 tidybayes::tidy_draws(fit_hierarchical_xy_intt) |> 
@@ -394,6 +383,7 @@ fit_hierarchical_xy_nested |>
   tidybayes::tidy_draws() |> 
   dplyr::select(ends_with("__")) |> 
   filter(divergent__ == TRUE)
+
 
 
 
