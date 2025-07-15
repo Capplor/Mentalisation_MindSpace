@@ -254,20 +254,22 @@ create_summary<- function(mod, variable, model_type, true_vals, model_letter){
   assign(new_name, merged_data, envir = .GlobalEnv)
 }
 
-model_run <- function(model, data){
+model_run <- function(model, data, seed = 123, chains= 4, parallel = 4, 
+                      warmup = 3000, sampling = 3000, treedepth=12, step = 0.1){
   return(
     model$sample(
     data = data,
-    seed = 123,           # Set a seed for reproducibility
-    chains = 4,           # Number of MCMC chains
-    parallel_chains = 4,  # Number of chains to run in parallel
-    iter_warmup = 3000,   # Number of warmup iterations
-    iter_sampling = 3000,# Number of sampling iterations
-    max_treedepth = 12,
-    step_size = 0.1
+    seed = seed,           
+    chains = chains,           
+    parallel_chains = parallel,  
+    iter_warmup = warmup,   
+    iter_sampling = sampling,
+    max_treedepth = treedepth,
+    step_size = step
   )
   )
 }
+
 
 prepare_data <- function(dat) {
   dat%>%
