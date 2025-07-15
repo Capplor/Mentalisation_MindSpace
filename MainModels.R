@@ -45,11 +45,7 @@ Zgen_mod <- cmdstan_model(Zgen_model)
 
 
 #Log Loss Formula
-log_loss <- function(p_true, p_pred) {
-  -sum(p_true * log(p_pred))
-}
-
-log_loss_expe<- function(p_pred, p_true) {-(sum(p_pred * log(p_true) + (1 - p_pred) * log(1 - p_true)))
+log_loss <- function(p_pred, p_true) {-(sum(p_pred * log(p_true) + (1 - p_pred) * log(1 - p_true)))
 }
 
 #RMSE function
