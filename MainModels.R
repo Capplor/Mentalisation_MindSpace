@@ -11,11 +11,11 @@ w_pred<- read_xlsx("w_pred.xlsx")
 w_pred$model<- "real probability"
 # Models####
 
-kcorr_model<-"k_constrained.stan" #K Correlation
+kcorr_model<-"k_hierarchical.stan" #K Correlation
 kcorr_mod <- cmdstan_model( kcorr_model)
-onecorr_model<-"one_constrained.stan"
+onecorr_model<-"one_hierarchical.stan"
 onecorr_mod <- cmdstan_model(onecorr_model)
-ZCcorr_model<-"zero constrained.stan"
+ZCcorr_model<-"zero hierarchical.stan"
 ZCcorr_mod <- cmdstan_model( ZCcorr_model)
 kgencorr_model<-"k general.stan"
 kgencorr_mod <- cmdstan_model( kgencorr_model)
@@ -45,7 +45,8 @@ Zgen_mod <- cmdstan_model(Zgen_model)
 
 
 #Log Loss Formula
-log_loss <- function(p_pred, p_true) {-(sum(p_pred * log(p_true) + (1 - p_pred) * log(1 - p_true)))
+log_loss <- function(p_pred, p_true) {
+-(sum(p_pred * log(p_true))
 }
 
 #RMSE function
