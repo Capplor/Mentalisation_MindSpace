@@ -1,18 +1,3 @@
-functions {
-  vector bounded_softmax(vector logits, real ps_min, real ps_max) {
-    int K = num_elements(logits);
-    vector[K] ps = softmax(logits);
-    
-    // Linearly rescale to [ps_min, ps_max] while preserving relative probabilities
-    real min_ps = min(ps);
-    real max_ps = max(ps);
-    if (max_ps - min_ps > 0) {
-      ps = ps_min + (ps_max - ps_min) * (ps - min_ps) / (max_ps - min_ps);
-    }
-    ps = ps / sum(ps);  // Renormalize to sum to 1
-    return ps;
-  }
-}
 
 data {
   int<lower=1> K;
@@ -30,11 +15,6 @@ data {
   array[I] row_vector<lower=0.04>[K] theta;
 }
 
-transformed data {
-  real ps_min = 0.01;
-  real ps_max = 0.96;
-}
-
 parameters {
   row_stochastic_matrix[I, K] w;
 }
@@ -45,6 +25,8 @@ model {
     w[i] ~ dirichlet(theta[i]);
   }
 
+  matrix[I,K] log_w = log(w);
+  
   // Likelihood calculation
   for (i in 1:I) {
     for (n in 1:N) {
@@ -84,7 +66,7 @@ generated quantities {
       // Normalize probabilities
       ps = softmax(lps);
       log_lik[i, n] = log_sum_exp(lps);
-      w_prob[i, n] = to_array_1d(bounded_softmax(lps,ps_min, ps_max));
+      w_prob[i, n] = to_array_1d(ps);
       
       // Generate posterior predictions
       int comp = categorical_rng(ps);

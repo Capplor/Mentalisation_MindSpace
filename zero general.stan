@@ -8,33 +8,25 @@ data {
   array[K] real<lower=0> betax;
   array[K] real<lower=0> alphay;
   array[K] real<lower=0> betay;
-  row_vector<lower=0>[K] theta;; // Dirichlet prior parameters for each participant
-}
-
-transformed data {
-  real p_min = 1e-10;
-  real p_mult = 1 - K * p_min;
+  row_vector<lower=0>[K] theta; // Dirichlet prior parameters for each participant
 }
 
 parameters {
-  row_stochastic_matrix[I, K] v; // Base simplex for mixture weights
-}
-
-transformed parameters {
-  row_stochastic_matrix[I, K] w = p_min + p_mult * v; // Adjusted mixture weights
+  row_stochastic_matrix[I, K] w;
 }
 
 model {
-  // Priors for v (implied for w)
+  // Prior for mixture weights
   for (i in 1:I) {
-    v[i] ~ dirichlet(theta);
+    w[i] ~ dirichlet(theta);
   }
 
-  // Likelihood
+  matrix[I,K] log_w = log(w);
+  
+  // Likelihood calculation
   for (i in 1:I) {
     for (n in 1:N) {
-      row_vector[K] log_w = log(w[i]);
-      row_vector[K] lps = log_w;
+      row_vector[K] lps = log(w[i]);
 
       for (k in 1:K) {
         real beta_x = beta_lpdf(x[i, n] | alphax[k], betax[k]);
@@ -72,11 +64,7 @@ generated quantities {
       // Normalize probabilities
       ps = softmax(lps);
       log_lik[i, n] = log_sum_exp(lps);
-
-      // Save the mixing probabilities for each cluster k in each trial n for participant i
-      for (k in 1:K) {
-        w_prob[i, n, k] = ps[k]; // Storing the normalized mixing probability for the k-th cluster
-      }
+      w_prob[i, n] = to_array_1d(ps);
 
       // Sample a component
       int comp = categorical_rng(ps);

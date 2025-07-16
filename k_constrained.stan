@@ -1,37 +1,28 @@
 functions {
-  vector bounded_softmax(vector logits, real ps_min, real ps_max) {
-    int K = num_elements(logits);
-    vector[K] ps = softmax(logits);
-    
-    // Linearly rescale to [ps_min, ps_max] while preserving relative probabilities
-    real min_ps = min(ps);
-    real max_ps = max(ps);
-    if (max_ps - min_ps > 0) {
-      ps = ps_min + (ps_max - ps_min) * (ps - min_ps) / (max_ps - min_ps);
-    }
-    ps = ps / sum(ps);  // Renormalize to sum to 1
-    return ps;
+  real inv_Phi_approx(real u) {
+    // Approximate inverse CDF of standard normal using scaled logit
+    return (1.0 / 1.702) * logit(u);
   }
 
   real gaussian_copula_density(real u_x, real u_y, real rho) {
     // Numerical stabilization parameters
-    real epsilon = 0.01;
-    
-    // Safely clamp u values to (epsilon, 1-epsilon) with gradient preservation
-    real clamped_u_x = u_x * (1 - 2*epsilon) + epsilon;
-    real clamped_u_y = u_y * (1 - 2*epsilon) + epsilon;
-    
-    // Stable inverse normal approximation with bounded outputs
-    real z_x = inv_Phi(clamped_u_x);
-    real z_y = inv_Phi(clamped_u_y);
+    real epsilon = 1e-6;
 
-    // Quadratic form computation with stabilized denominator
+    // Clamp u values to (epsilon, 1-epsilon)
+    real clamped_u_x = u_x * (1 - 2 * epsilon) + epsilon;
+    real clamped_u_y = u_y * (1 - 2 * epsilon) + epsilon;
+
+    // Approximate inverse normal CDF
+    real z_x = inv_Phi_approx(clamped_u_x);
+    real z_y = inv_Phi_approx(clamped_u_y);
+
+    // Quadratic form for Gaussian copula
     real rho_sq = square(rho);
-    real inv_one_m_rho_sq = 1 - rho_sq;
-    
-    return -0.5 * log(2 * pi())
-           - 0.5 * log1m(rho_sq)
-           - 0.5 * inv_one_m_rho_sq * (z_x*z_x + z_y*z_y - 2*rho*z_x*z_y);
+    real one_m_rho_sq = 1 - rho_sq;
+
+    return -0.5 * log1m(rho_sq)
+           - 0.5 * (square(z_x) + square(z_y) - 2 * rho * z_x * z_y) / one_m_rho_sq
+           + 0.5 * (square(z_x) + square(z_y));
   }
 }
 
@@ -52,10 +43,6 @@ data {
   array[I, K] real<lower=-0.99, upper=0.99> rho;
 }
 
-transformed data {
-  real ps_min = 0.01;
-  real ps_max = 0.96;
-}
 
 parameters {
   row_stochastic_matrix[I, K] w;
@@ -67,6 +54,8 @@ model {
     w[i] ~ dirichlet(theta[i]);
   }
 
+  matrix[I,K] log_w = log(w);
+  
   // Likelihood calculation
   for (i in 1:I) {
     for (n in 1:N) {
@@ -114,7 +103,7 @@ generated quantities {
       // Normalize probabilities
       ps = softmax(lps);
       log_lik[i, n] = log_sum_exp(lps);
-      w_prob[i, n] = to_array_1d(bounded_softmax(lps,ps_min, ps_max));
+      w_prob[i, n] = to_array_1d(ps);
       
       // Generate posterior predictions
       int comp = categorical_rng(ps);
