@@ -45,8 +45,8 @@ Zgen_mod <- cmdstan_model(Zgen_model)
 
 
 #Log Loss Formula
-log_loss <- function(p_pred, p_true) {
--(sum(p_pred * log(p_true))
+log_loss <- function(p_true, p_pred) {
+  -sum(p_true * log(p_pred))
 }
 
 #RMSE function
@@ -62,7 +62,7 @@ cosine_similarity <- function(p_true, p_pred) {
 
 #KL Divergence
 
-kl_divergence <- function(p, q, epsilon = 1e-12) {
+kl_divergence <- function(p, q) {
   sum(p * log(p / q))
 }
 
@@ -79,6 +79,14 @@ brier_score <- function(p_pred, p_true) {
   sum((p_pred - p_true)^2+((1-p_pred)-(1-p_true))^2)
 }
 
+huber_loss <- function(p_true, p_pred, alpha = 0.25) {
+  delta <- p_true- p_pred
+  ifelse(
+    abs(delta) <= alpha,
+    0.5 * delta^2,
+    alpha * (abs(delta) - 0.5 * alpha)
+  )
+}
 
 #Summarise
 
@@ -229,7 +237,16 @@ create_summary<- function(mod, variable, model_type, true_vals, model_letter){
     letter= model_letter,
     name = "kl",
     fullname="kl",
-    participant, N) 
+    participant, N)
+  metricdata(
+    fun = huber_loss,
+    true = true_prob,
+    pred = pred_prob,
+    dataset = merged_data,
+    letter= model_letter,
+    name = "hl",
+    fullname="hl",
+    participant, N)
   metricdata(
     fun = js_divergence,
     true = true_prob,
@@ -271,14 +288,29 @@ model_run <- function(model, data, seed = 123, chains= 4, parallel = 4,
   )
 }
 
-
 prepare_data <- function(dat) {
   dat%>%
     dplyr::select(1:5) %>%  # Select first 5 columns
     rename(model:= model.x)
 }
 
-ridgeplot<- function(dat1, dat2, dat3, dat4, x, y, fill, gridX, gridY, title){
+top_participants<- function(dataset, metric, threshold, up_or_down, 
+                            group, rank_by, sort_order=" "){
+  newdat <- dataset%>%
+    summetrics(metric=metric, group_by = c(group))
+  col_sym <- sym(paste0(metric, "_", rank_by))
+  newdat <- newdat %>%
+    dplyr::select(all_of(group), !!col_sym)
+  
+  filter_expr <- call2(as.name(up_or_down), col_sym, threshold)
+  
+  newdat %>%
+    dplyr::filter(!!filter_expr) %>%
+    dplyr::arrange(if (sort_order == "desc") desc(!!col_sym) else !!col_sym) %>%
+    dplyr::select(all_of(group), !!col_sym)
+}
+
+ridgeplot<- function(dat1, dat2, dat3, dat4, x, y, fill, gridX, gridY, title, h_vs_g= "hier"){
   
   ndat1 <- prepare_data(dat1)
   ndat2 <- prepare_data(dat2)
@@ -290,6 +322,8 @@ ridgeplot<- function(dat1, dat2, dat3, dat4, x, y, fill, gridX, gridY, title){
   print(head(ndat4))
   
   melt<- rbind(ndat1, ndat2, ndat3, ndat4)
+  new_name<- paste0("melt_", h_vs_g)
+  assign(new_name, melt, envir = .GlobalEnv)
   print(head(melt))
   print(ggplot(melt, aes(x = .data[[x]], y = .data[[y]], fill = .data[[fill]])) +
           geom_density_ridges(alpha = 0.7) +
@@ -462,12 +496,20 @@ titleG<-"Ridge Plot of P across General Models"
 ridgeplot(merged_data0gen, merged_data1gen, merged_datakgen, w_pred, 
           x = "pred_prob", y = "K", fill = "K", 
           gridY = "model", gridX = "N", 
-          title = titleG)
+          title = titleG, h_vs_g = "gen")
 
 # Error ParticipantxTrial ####
 
 rmse_list<-list(rmse0, rmse1, rmsek, rmse0gen, rmse1gen, rmsekgen)
 lapply(rmse_list,  function(df) summetrics(data = df, metric = "rmse"))
+
+participant_rmse_rank<- lapply(rmse_list,
+                             function(df) top_participants(dataset=df, 
+                                                           "rmse", 
+                                                           0.866,
+                                                           "<=",
+                                                           "participant", 
+                                                           "median"))
 
 rmse_data <- bind_rows(
   rmse0  %>% mutate(model = "No ρ",
@@ -484,6 +526,12 @@ rmse_data <- bind_rows(
                             hvsg = "General")
   )
 
+normalised<- rmse_data%>%
+  group_by(model,hvsg)%>%
+  summarise(normalised_rmse= rmse/(max(rmse)-min(rmse)), .groups = "drop")
+
+summetrics(normalised, "normalised_rmse", group_by = c("model","hvsg"))[,1:4]
+
 ggplot(rmse_data, aes(rmse))+
   geom_histogram(colour="black")+
   facet_grid(hvsg~model)+
@@ -494,7 +542,14 @@ sdamr::plot_raincloud(rmse_data, rmse, groups= model)
 # Cosine Similarity ParticipantxTrial ####
 cos_list<-list(cos0, cos1, cosK, cos0gen, cos1gen, coskgen)
 lapply(cos_list,  function(df) summetrics(data = df, metric = "cosine_sim"))
-
+participant_cos_rank<- lapply(cos_list,
+                              function(df) top_participants(dataset=df, 
+                                                            "cosine_sim", 
+                                                            0.5,
+                                                            ">=",
+                                                            "participant", 
+                                                            "median", 
+                                                            sort_order = "desc"))
 cosim <- bind_rows(
   cos0  %>% mutate(model = "No ρ",
                          hvsg = "Hierarchical"),
@@ -521,12 +576,20 @@ sdamr::plot_raincloud(cosim, cosine_sim, groups= model)
 kl_list<-list(kl0, kl1, klk, kl0gen, kl1gen, klkgen)
 lapply(kl_list,  function(df) summetrics(data = df, metric = "kl"))
 
+participant_kl_rank<- lapply(kl_list,
+                             function(df) top_participants(dataset=df, 
+                                                           "kl", 
+                                                           1.386,
+                                                           "<=",
+                                                           "participant", 
+                                                           "median"))
+
 kldiv <- bind_rows(
   kl0  %>% mutate(model = "No ρ",
                    hvsg = "Hierarchical"),
   kl1  %>% mutate(model = "General ρ",
                    hvsg = "Hierarchical"),
-  klK  %>% mutate(model = "Cluster ρ",
+  klk  %>% mutate(model = "Cluster ρ",
                    hvsg = "Hierarchical"),
   kl0gen %>% mutate(model = "No ρ",
                      hvsg = "General"),
@@ -543,10 +606,63 @@ ggplot(kldiv, aes(kl))+
 
 sdamr::plot_raincloud(kldiv, kl, groups= model)
 
+# HuberLoss ParticipantxTrial ####
+hl_list<-list(hl0, hl1, hlk, hl0gen, hl1gen, hlkgen)
+lapply(hl_list,  function(df) summetrics(data = df, metric = "hl"))
+
+participant_hl_rank<- lapply(hl_list,
+                             function(df) top_participants(dataset=df, 
+                                                           "hl", 
+                                                           1.386,
+                                                           "<=",
+                                                           "participant", 
+                                                           "median"))
+hl <- bind_rows(
+  hl0  %>% mutate(model = "No ρ",
+                  hvsg = "Hierarchical"),
+  hl1  %>% mutate(model = "General ρ",
+                  hvsg = "Hierarchical"),
+  hlk  %>% mutate(model = "Cluster ρ",
+                  hvsg = "Hierarchical"),
+  hl0gen %>% mutate(model = "No ρ",
+                    hvsg = "General"),
+  hl1gen %>% mutate(model = "General ρ",
+                    hvsg = "General"),
+  hlkgen  %>% mutate(model = "Cluster ρ",
+                     hvsg = "General")
+)
+
+total_merge<- rbind(merged_data0, merged_data0gen, 
+                    merged_data1, merged_data1gen, 
+                    merged_datak, merged_datakgen)
+maxhl<- huber_loss(max(total_merge$true_prob), min(total_merge$pred_prob))
+minhl<- huber_loss(min(total_merge$true_prob), min(total_merge$pred_prob))
+
+normalised_hl<- hl%>%
+  group_by(model,hvsg)%>%
+  summarise(normalised_hl= hl/(maxhl-minhl), .groups = "drop")
+
+summetrics(normalised_hl, "normalised_hl", group_by = c("model","hvsg"))[,1:4]
+
+ggplot(hldiv, aes(hl))+
+  geom_histogram(colour="black")+
+  facet_grid(hvsg~model)+
+  theme(legend.position= "none")
+
+sdamr::plot_raincloud(hldiv, hl, groups= model)
+
 # JS Divergence ParticipantxTrial ####
 
 js_list<-list(js0, js1, jsk, js0gen, js1gen,jskgen)
 lapply(js_list,  function(df) summetrics(data = df, metric = "js"))
+
+participant_js_rank<- lapply(js_list,
+                              function(df) top_participants(dataset=df, 
+                                                            "js", 
+                                                            0.207,
+                                                            "<=",
+                                                            "participant", 
+                                                            "median"))
 
 jsdiv <- bind_rows(
   js0  %>% mutate(model = "No ρ",
@@ -575,6 +691,13 @@ sdamr::plot_raincloud(jsdiv, js, groups= model)
 bs_list<-list(bs0, bs1, bsk, bs0gen, bs1gen,bskgen)
 lapply(bs_list,  function(df) summetrics(data = df, metric = "bs"))
 
+participant_bs_rank<- lapply(bs_list,
+                              function(df) top_participants(dataset=df, 
+                                                            "bs", 
+                                                            0.75,
+                                                            "<=",
+                                                            "participant", 
+                                                            "median"))
 
 bsco <- bind_rows(
   bs0  %>% mutate(model = "No ρ",
@@ -604,7 +727,17 @@ log_loss_list<-list(log_loss0, log_loss1, log_lossk,
            log_loss0gen, log_loss1gen, log_losskgen
            )
 
-lapply(log_loss_list,  function(df) summetrics(data = df, metric = "log_loss"))
+log_loss_summary<- lapply(log_loss_list,  
+                          function(df) summetrics(data = df, 
+                                                  metric = "log_loss"))
+
+participant_log_rank<- lapply(log_loss_list,
+                              function(df) top_participants(dataset=df, 
+                                                            "log_loss", 
+                                                            -log(1/4),
+                                                            "<=",
+                                                            "participant", 
+                                                            "median"))
 
 logloss <- bind_rows(
   log_loss0 %>% mutate(model = "No ρ",
@@ -633,6 +766,13 @@ sdamr::plot_raincloud(logloss, log_loss, groups= model)
 c_list<-list(c0, c1, ck, c0gen, c1gen, ckgen)
 
 lapply(c_list,  function(df) summetrics(data = df, metric = "correlation"))
+participant_cor_rank<- lapply(c_list,
+                              function(df) top_participants(dataset=df, 
+                                                            "correlation", 
+                                                            0,
+                                                            ">=",
+                                                            "participant", 
+                                                            "median", sort_order = "desc"))
 
 corr <- bind_rows(
   c0  %>% mutate(model = "No ρ",
@@ -685,13 +825,14 @@ rmse_data<-prep(rmse_data, "RMSE")
 cosim<-prep(cosim, "Cosine Similarity")
 kldiv<-prep(kldiv, "KL Divergence")
 jsdiv<-prep(jsdiv, "JS Divergence")
+hl<-prep(hl, "Huber Loss")
 bsco<-prep(bsco, "Brier Score")
 logloss<-prep(logloss, "Log-Loss")
 corr<-prep(corr, "Correlation")
 
 
-total_metric<- rbind(rmse_data,cosim,kldiv,jsdiv,bsco,logloss,corr)
-total_list<-list(rmse_data,cosim,kldiv,jsdiv,bsco,logloss,corr)
+total_metric<- rbind(rmse_data,cosim,kldiv,jsdiv,bsco,logloss,corr,hl)
+total_list<-list(rmse_data,cosim,kldiv,jsdiv,bsco,logloss,corr,hl)
 total_metric%>%
   group_by(model, hvsg)%>%
   dplyr::filter(metric=="Log-Loss")%>%
@@ -699,11 +840,11 @@ total_metric%>%
 
 sum(total_metric$value[total_metric$metric=="Log-Loss"])
 
-lapply(total_list, function(x) model_comp(dataset=x))
+#lapply(total_list, function(x) model_comp(dataset=x))
 
 metric_summary<- summetrics(total_metric, "value", c("model","hvsg","metric"))
 
-print(metric_summary[,c(1:3,5,7)], n=42)
+print(metric_summary[,c(1:3,5,7)], n=48)
 
 metric_summary %>%
   dplyr::select(model, hvsg, metric, value_median, value_IQR) %>%
