@@ -1,4 +1,3 @@
-#----------------------------------------
 # Calling data if not run Main Data ####
 
 all_data <- readRDS("all_data_lists.rds")
@@ -6,6 +5,7 @@ data_k_0 <- all_data$data_k_0
 data_1 <-all_data$data_1
 data_gen <-all_data$data_gen
 data_1_gen <- all_data$data_1_gen
+
 rm(all_data)
 w_pred<- read_xlsx("w_pred.xlsx")
 w_pred$model<- "real probability"
@@ -367,6 +367,94 @@ model_comp<- function(dataset, formula =value~model*hvsg + (1|participant)+(1|N)
     coefficients = res$coefficients)
 }
 
+nest_as_dat<- function(list, metric){
+  combined_data <- bind_rows(
+    as.data.frame(list[1])  %>% mutate(model = "No ρ",
+                                       hvsg = "Hierarchical"),
+    as.data.frame(list[2])  %>% mutate(model = "General ρ",
+                                       hvsg = "Hierarchical"),
+    as.data.frame(list[3])  %>% mutate(model = "Cluster ρ",
+                                       hvsg = "Hierarchical"),
+    as.data.frame(list[4]) %>% mutate(model = "No ρ",
+                                      hvsg = "General"),
+    as.data.frame(list[5]) %>% mutate(model = "General ρ",
+                                      hvsg = "General"),
+    as.data.frame(list[6])  %>% mutate(model = "Cluster ρ",
+                                       hvsg = "General")
+  )
+  
+  combined_data$metric<- metric
+  names(combined_data)[2]<- "median"
+  return(combined_data)
+}
+
+metric_tot <- function(datametric){
+  dat0 <- get(paste0(datametric, "0"))
+  dat1 <- get(paste0(datametric, "1"))
+  dat2 <- get(paste0(datametric, "k"))
+  dat3 <- get(paste0(datametric, "0gen"))
+  dat4 <- get(paste0(datametric, "1gen"))
+  dat5 <- get(paste0(datametric, "kgen"))
+
+  
+  combined_data <- bind_rows(
+    dat0  %>% mutate(model = "No ρ",
+                     hvsg = "Hierarchical"),
+    dat1  %>% mutate(model = "General ρ",
+                     hvsg = "Hierarchical"),
+    dat2  %>% mutate(model = "Cluster ρ",
+                     hvsg = "Hierarchical"),
+    dat3 %>% mutate(model = "No ρ",
+                    hvsg = "General"),
+    dat4 %>% mutate(model = "General ρ",
+                    hvsg = "General"),
+    dat5  %>% mutate(model = "Cluster ρ",
+                     hvsg = "General")
+    )
+  combined_data
+}
+
+expected_vals <- function(alpha, beta) {
+  alpha / (alpha + beta)
+}
+
+fit_lmm<- function(dv, iv_formula, ran_eff, data, correction="holm"){
+  require(afex)
+  require(emmeans)
+  formula<- paste0(dv, iv_formula, "+", ran_eff)
+  formula<- as.formula(formula)
+  fit<-mixed(formula, data)
+  summary(fit)
+  emm<-emmeans(fit,as.formula(iv_formula), adjust=correction)
+  p_all <- as.data.frame(pairs(emm, adjust = correction))
+  sig_contrast<- subset(p_all, p.value<0.05)[,c(1,2)]
+  sig_contrast <- arrange(sig_contrast, contrast, desc(estimate))
+  dimwise_sig_contrast <- sig_contrast %>%
+    filter(!grepl("Aesthetic.*Organisation|Organisation.*Aesthetic", contrast)) %>%
+    arrange(contrast, desc(estimate))
+  nsig_contrast<- subset(p_all, p.value>0.05)[,c(1,2)]
+  nsig_contrast <- arrange(nsig_contrast, contrast)
+  assign("fit_ev_priors", fit, .GlobalEnv)
+  assign("p_ev_pairs", p_all, .GlobalEnv)
+  assign("sig_ev_pairs", sig_contrast, .GlobalEnv)
+  assign("dimwise_ev_pairs", dimwise_sig_contrast, .GlobalEnv)
+  assign("nsig_ev_pairs", nsig_contrast, .GlobalEnv)
+}
+
+#ev evaluation####
+ev_x <- expected_vals(data_k_0$alphax, data_k_0$betax)
+ev_y <- expected_vals(data_k_0$alphay, data_k_0$betay)
+
+ev_long <- data.frame(
+  Trait = as.factor(rep(c("Builder", "Explorer", "Competitor", "Pacifist"), each = nrow(ev_x)*2)),
+  Context = as.factor(rep(c("Aesthetic", "Organisation"), each = nrow(ev_x), times = 4)),
+  EV = c(as.vector(ev_x), as.vector(ev_y)),
+  participant=rep(1:82, times=8)
+)
+
+fit_lmm("EV","~Context*Trait", "(1|participant)", ev_long)
+
+
 # FITTING MODELS ####
 
 # K model 
@@ -511,20 +599,9 @@ participant_rmse_rank<- lapply(rmse_list,
                                                            "participant", 
                                                            "median"))
 
-rmse_data <- bind_rows(
-  rmse0  %>% mutate(model = "No ρ",
-                         hvsg = "Hierarchical"),
-  rmse1  %>% mutate(model = "General ρ",
-                         hvsg = "Hierarchical"),
-  rmsek  %>% mutate(model = "Cluster ρ",
-                         hvsg = "Hierarchical"),
-  rmse0gen %>% mutate(model = "No ρ",
-                           hvsg = "General"),
-  rmse1gen %>% mutate(model = "General ρ",
-                           hvsg = "General"),
-  rmsekgen  %>% mutate(model = "Cluster ρ",
-                            hvsg = "General")
-  )
+participant_rmse_rank <- nest_as_dat(participant_rmse_rank, "RMSE")
+
+rmse_data <- metric_tot("rmse")
 
 normalised<- rmse_data%>%
   group_by(model,hvsg)%>%
@@ -550,20 +627,9 @@ participant_cos_rank<- lapply(cos_list,
                                                             "participant", 
                                                             "median", 
                                                             sort_order = "desc"))
-cosim <- bind_rows(
-  cos0  %>% mutate(model = "No ρ",
-                         hvsg = "Hierarchical"),
-  cos1  %>% mutate(model = "General ρ",
-                         hvsg = "Hierarchical"),
-  cosK  %>% mutate(model = "Cluster ρ",
-                         hvsg = "Hierarchical"),
-  cos0gen %>% mutate(model = "No ρ",
-                           hvsg = "General"),
-  cos1gen %>% mutate(model = "General ρ",
-                           hvsg = "General"),
-  coskgen  %>% mutate(model = "Cluster ρ",
-                            hvsg = "General")
-)
+participant_cos_rank <- nest_as_dat(participant_cos_rank, "Cosine Similarity")
+
+cosim <- metric_tot("cos")
 
 ggplot(cosim, aes(cosine_sim))+
   geom_histogram(colour="black")+
@@ -584,20 +650,10 @@ participant_kl_rank<- lapply(kl_list,
                                                            "participant", 
                                                            "median"))
 
-kldiv <- bind_rows(
-  kl0  %>% mutate(model = "No ρ",
-                   hvsg = "Hierarchical"),
-  kl1  %>% mutate(model = "General ρ",
-                   hvsg = "Hierarchical"),
-  klk  %>% mutate(model = "Cluster ρ",
-                   hvsg = "Hierarchical"),
-  kl0gen %>% mutate(model = "No ρ",
-                     hvsg = "General"),
-  kl1gen %>% mutate(model = "General ρ",
-                     hvsg = "General"),
-  klkgen  %>% mutate(model = "Cluster ρ",
-                      hvsg = "General")
-)
+participant_kl_rank <- nest_as_dat(participant_kl_rank, "KL Divergence")
+
+kldiv <- metric_tot("kl")
+
 
 ggplot(kldiv, aes(kl))+
   geom_histogram(colour="black")+
@@ -617,20 +673,10 @@ participant_hl_rank<- lapply(hl_list,
                                                            "<=",
                                                            "participant", 
                                                            "median"))
-hl <- bind_rows(
-  hl0  %>% mutate(model = "No ρ",
-                  hvsg = "Hierarchical"),
-  hl1  %>% mutate(model = "General ρ",
-                  hvsg = "Hierarchical"),
-  hlk  %>% mutate(model = "Cluster ρ",
-                  hvsg = "Hierarchical"),
-  hl0gen %>% mutate(model = "No ρ",
-                    hvsg = "General"),
-  hl1gen %>% mutate(model = "General ρ",
-                    hvsg = "General"),
-  hlkgen  %>% mutate(model = "Cluster ρ",
-                     hvsg = "General")
-)
+
+participant_hl_rank <- nest_as_dat(participant_hl_rank, "Huber Loss")
+
+hl <- metric_tot("hl")
 
 total_merge<- rbind(merged_data0, merged_data0gen, 
                     merged_data1, merged_data1gen, 
@@ -644,12 +690,12 @@ normalised_hl<- hl%>%
 
 summetrics(normalised_hl, "normalised_hl", group_by = c("model","hvsg"))[,1:4]
 
-ggplot(hldiv, aes(hl))+
+ggplot(hl, aes(hl))+
   geom_histogram(colour="black")+
   facet_grid(hvsg~model)+
   theme(legend.position= "none")
 
-sdamr::plot_raincloud(hldiv, hl, groups= model)
+sdamr::plot_raincloud(hl, hl, groups= model)
 
 # JS Divergence ParticipantxTrial ####
 
@@ -663,22 +709,9 @@ participant_js_rank<- lapply(js_list,
                                                             "<=",
                                                             "participant", 
                                                             "median"))
-
-jsdiv <- bind_rows(
-  js0  %>% mutate(model = "No ρ",
-                   hvsg = "Hierarchical"),
-  js1  %>% mutate(model = "General ρ",
-                   hvsg = "Hierarchical"),
-  jsK  %>% mutate(model = "Cluster ρ",
-                   hvsg = "Hierarchical"),
-  js0gen %>% mutate(model = "No ρ",
-                     hvsg = "General"),
-  js1gen %>% mutate(model = "General ρ",
-                     hvsg = "General"),
-  jskgen  %>% mutate(model = "Cluster ρ",
-                      hvsg = "General")
-)
-
+participant_js_rank <- nest_as_dat(participant_js_rank, "JS Divergence")
+jsdiv <- metric_tot("js")
+  
 ggplot(jsdiv, aes(js))+
   geom_histogram(colour="black")+
   facet_grid(hvsg~model)+
@@ -699,20 +732,9 @@ participant_bs_rank<- lapply(bs_list,
                                                             "participant", 
                                                             "median"))
 
-bsco <- bind_rows(
-  bs0  %>% mutate(model = "No ρ",
-                   hvsg = "Hierarchical"),
-  bs1  %>% mutate(model = "General ρ",
-                   hvsg = "Hierarchical"),
-  bsK  %>% mutate(model = "Cluster ρ",
-                   hvsg = "Hierarchical"),
-  bs0gen %>% mutate(model = "No ρ",
-                     hvsg = "General"),
-  bs1gen %>% mutate(model = "General ρ",
-                     hvsg = "General"),
-  bskgen  %>% mutate(model = "Cluster ρ",
-                      hvsg = "General")
-)
+participant_bs_rank <- nest_as_dat(participant_bs_rank, "Brier Score")
+
+bsco <- metric_tot("bs")
 
 ggplot(bsco, aes(bs))+
   geom_histogram(colour="black")+
@@ -739,20 +761,9 @@ participant_log_rank<- lapply(log_loss_list,
                                                             "participant", 
                                                             "median"))
 
-logloss <- bind_rows(
-  log_loss0 %>% mutate(model = "No ρ",
-                   hvsg = "Hierarchical"),
-  log_loss1  %>% mutate(model = "General ρ",
-                   hvsg = "Hierarchical"),
-  log_lossk  %>% mutate(model = "Cluster ρ",
-                   hvsg = "Hierarchical"),
-  log_loss0gen %>% mutate(model = "No ρ",
-                     hvsg = "General"),
-  log_loss1gen %>% mutate(model = "General ρ",
-                     hvsg = "General"),
-  log_losskgen  %>% mutate(model = "Cluster ρ",
-                      hvsg = "General")
-)
+participant_log_rank <- nest_as_dat(participant_log_rank, "Log Loss")
+
+logloss <- metric_tot("log_loss")
 
 ggplot(logloss, aes(log_loss))+
   geom_histogram(colour="black")+
@@ -774,20 +785,9 @@ participant_cor_rank<- lapply(c_list,
                                                             "participant", 
                                                             "median", sort_order = "desc"))
 
-corr <- bind_rows(
-  c0  %>% mutate(model = "No ρ",
-                  hvsg = "Hierarchical"),
-  c1  %>% mutate(model = "General ρ",
-                  hvsg = "Hierarchical"),
-  ck  %>% mutate(model = "Cluster ρ",
-                  hvsg = "Hierarchical"),
-  c0gen %>% mutate(model = "No ρ",
-                    hvsg = "General"),
-  c1gen %>% mutate(model = "General ρ",
-                    hvsg = "General"),
-  ckgen  %>% mutate(model = "Cluster ρ",
-                     hvsg = "General")
-)
+participant_cor_rank <- nest_as_dat(participant_cor_rank, "Correlation")
+
+corr <- metric_tot("c")
 
 ggplot(corr, aes(correlation))+
   geom_histogram(colour="black")+
@@ -852,4 +852,20 @@ metric_summary %>%
   gt::gt() %>%
   gt::fmt_number(columns = c(value_median, value_IQR), decimals = 3) %>%
   gt::tab_header(title = "Model Performance Comparison")
+
+participant_ranking<- rbind(participant_bs_rank, participant_cor_rank,
+                           participant_cos_rank, participant_hl_rank,
+                           participant_js_rank, participant_kl_rank,
+                           participant_log_rank, participant_rmse_rank)
+
+final_ranks<- participant_ranking %>%
+  dplyr::filter(hvsg=="Hierarchical")%>%
+  distinct(participant, model , metric) %>%
+  group_by(participant) %>%
+  summarise(n_groups = n(),
+            models = list(unique(model)),
+            metrics = list(unique(metric)), .groups = "drop")%>%
+  arrange(desc(n_groups))
+
+  
 
