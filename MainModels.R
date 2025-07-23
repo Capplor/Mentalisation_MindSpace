@@ -1,3 +1,4 @@
+#----------------------------------------
 # Calling data if not run Main Data ####
 
 all_data <- readRDS("all_data_lists.rds")
@@ -9,6 +10,10 @@ data_1_gen <- all_data$data_1_gen
 rm(all_data)
 w_pred<- read_xlsx("w_pred.xlsx")
 w_pred$model<- "real probability"
+
+x_observed <- as.vector(t(as.matrix(unlist(data_k_0$x))))
+y_observed <- as.vector(t(as.matrix(unlist(data_k_0$y))))
+
 # Models####
 
 kcorr_model<-"k_hierarchical.stan" #K Correlation
@@ -54,6 +59,10 @@ rmse <- function(p_true, p_pred) {
   sqrt(mean((p_true - p_pred)^2))
 }
 
+#MAE function
+mae <- function(p_true, p_pred) {
+  mean(abs(p_true - p_pred))
+}
 #Cosine Similarity 
 
 cosine_similarity <- function(p_true, p_pred) {
@@ -80,14 +89,13 @@ brier_score <- function(p_pred, p_true) {
 }
 
 huber_loss <- function(p_true, p_pred, alpha = 0.25) {
-  delta <- p_true- p_pred
-  ifelse(
+  delta <- p_true - p_pred
+  mean(ifelse(
     abs(delta) <= alpha,
     0.5 * delta^2,
     alpha * (abs(delta) - 0.5 * alpha)
-  )
+  ))
 }
-
 #Summarise
 
 library(rlang)
@@ -172,6 +180,7 @@ create_summary<- function(mod, variable, model_type, true_vals, model_letter){
   
   w_pred <- true_vals
   w_prob <- mod$draws(variables=variable, format= "matrix")
+  
   summary_stats  <- summarize_draws(w_prob , mean)
   summarydf  <- summary_stats  %>%
     separate(variable, into = c("prefix", "I", "N", "K"), sep = "\\[|,|\\]", 
@@ -271,6 +280,92 @@ create_summary<- function(mod, variable, model_type, true_vals, model_letter){
   # Assign to global environment
   assign(new_name, merged_data, envir = .GlobalEnv)
 }
+
+prior_check<-function(mod, var1, var2, obs1, obs2, modname){
+  x_observed <- as.vector(as.matrix(unlist(obs1)))
+  x_observed_long<- as.data.frame(unlist(obs1))
+  x_observed_long$I<- 1:nrow(x_observed_long)
+  colnames(x_observed_long)[1:9]<- c(1:9)
+  x_observed_long<- pivot_longer(x_observed_long,cols = c(1:9), names_to = "N")%>%
+    mutate(N = as.integer(N))
+  
+  y_observed <- as.vector(as.matrix(unlist(obs2)))
+  y_observed_long<- as.data.frame(unlist(obs2))
+  y_observed_long$I<- 1:nrow(y_observed_long)
+  colnames(y_observed_long)[1:9]<- c(1:9)
+  y_observed_long<- pivot_longer(y_observed_long,cols = c(1:9), names_to = "N")%>%
+    mutate(N = as.integer(N))
+  
+  x_rep<-mod$draws(var1, format = "matrix")
+  y_rep<-mod$draws(var2, format = "matrix")
+  # Create plots
+  p1 <- bayesplot::ppc_dens_overlay(y = x_observed, yrep = x_rep) +
+    ggtitle(paste0("Prior Predictive Check:", var1," ", modname))
+  
+  p2 <- bayesplot::ppc_dens_overlay(y = y_observed, yrep = y_rep) +
+    ggtitle(paste0("Prior Predictive Check:", var2, " ", modname))
+  
+  # Combine plots with patchwork
+  combined_plot <- p1 + p2 + plot_layout(ncol = 2)
+  
+  # Save plot
+  plot_filename <- paste0("PPC_", modname, ".png")
+  ggsave(plot_filename, combined_plot, width = 12, height = 6, dpi = 300)
+  
+  x_rep_clean <-summarise_draws(x_rep, mean)
+  x_rep_clean  <- x_rep_clean  %>%
+    separate(variable, into = c("prefix", "I", "N"), sep = "\\[|,|\\]", 
+             extra = "drop",convert = TRUE) %>%
+    dplyr:: select(-prefix)
+  
+  x <- left_join(x_observed_long, x_rep_clean, by = c("I", "N"))
+  
+  
+  y_rep_clean <-summarise_draws(y_rep, mean)
+  y_rep_clean  <- y_rep_clean  %>%
+    separate(variable, into = c("prefix", "I", "N"), sep = "\\[|,|\\]", 
+             extra = "drop",convert = TRUE) %>%
+    dplyr:: select(-prefix)
+  y <- left_join(y_observed_long, y_rep_clean, by = c("I", "N"))
+  x$variable<-"Aesthetic Appreciation"
+  y$variable<-"Organisation"
+  prior_check_tot<-rbind(x,y)
+  
+  results <- prior_check_tot %>%
+    group_by(variable) %>%
+    summarise(
+        correlation = cor(value, mean),
+        cor_p_value = cor.test(value, mean)$p.value,  # p-value for correlation
+        R2 = cor(value, mean)^2,
+        MAE = mae(value, mean),
+        RMSE= rmse(value, mean),
+        HL= huber_loss(value, mean),
+        .groups = "drop"
+      )
+  results_p <- prior_check_tot %>%
+    group_by(variable, I) %>%
+    summarise(
+      correlation = cor(value, mean),
+      cor_p_value = cor.test(value, mean)$p.value,  # p-value for correlation
+      R2 = cor(value, mean)^2,
+      MAE = mae(value, mean),
+      RMSE= rmse(value, mean),
+      HL= huber_loss(value, mean),
+      .groups = "drop"
+    )
+  
+  results_p<- pivot_longer(results_p, cols = c(3:8), names_to = "metric", values_to = "value")
+  summary<- summetrics(results_p, group_by = "metric", metric = "value")
+  
+  invisible(list(
+    overall = results,
+    per_participant = results_p,
+    participant_summary = summary,
+    plot_file = plot_filename
+  ))
+  
+}
+
 
 model_run <- function(model, data, seed = 123, chains= 4, parallel = 4, 
                       warmup = 3000, sampling = 3000, treedepth=12, step = 0.1){
@@ -462,29 +557,38 @@ fitkcorr_h <-  model_run(kcorr_mod, data_k_0)
 # 1 model 
 fit1corr_h <-  model_run(onecorr_mod, data_1)
 # Zero
-zerocorrmod <-  model_run(ZCcorr_mod, data_k_0)
+fit0corr_h <-  model_run(ZCcorr_mod, data_k_0)
 # General K 
 fitkcorrgen <-  model_run(kgencorr_mod, data_gen)
 # 1 model 
 fit1corrgen <-  model_run(onegencorr_mod, data_1_gen)
 # Zero
-zerocorrgen <-  model_run(Zgen_mod, data_gen)
+fit0corrgen <-  model_run(Zgen_mod, data_gen)
 
 # summaries
 
 create_summary(fitkcorr_h,"w_prob", "K Correlations", w_pred, "k")
 create_summary(fit1corr_h,"w_prob", "One Correlation", w_pred, "1")
-create_summary(zerocorrmod,"w_prob", "Zero Correlations", w_pred, "0")
+create_summary(fit0corr_h,"w_prob", "Zero Correlations", w_pred, "0")
 
 create_summary(fitkcorrgen,"w_prob", "K Correlations", w_pred, "kgen")
 create_summary(fit1corrgen,"w_prob", "One Correlation", w_pred, "1gen")
-create_summary(zerocorrgen,"w_prob", "Zero Correlations", w_pred, "0gen")
+create_summary(fit0corrgen,"w_prob", "Zero Correlations", w_pred, "0gen")
+
+#prior check
+
+PPC_kh<-prior_check(fitkcorr_h, "x_rep", "y_rep", data_k_0$x, data_k_0$y, "k")
+PPC_1h<-prior_check(fit1corr_h, "x_rep", "y_rep", data_k_0$x, data_k_0$y, "1")
+PPC_0h<-prior_check(fit0corr_h, "x_rep", "y_rep", data_k_0$x, data_k_0$y, "0")
+PPC_kgen<-prior_check(fitkcorrgen, "x_rep", "y_rep", data_k_0$x, data_k_0$y, "kgen")
+PPC_1gen<-prior_check(fit1corrgen, "x_rep", "y_rep", data_k_0$x, data_k_0$y, "1gen")
+PPC_0gen<-prior_check(fit0corrgen, "x_rep", "y_rep", data_k_0$x, data_k_0$y, "0gen")
 
 #-------------------------------------------
 # PLOTS & REPORTS####
 #-------------------------------------------
 # Corr Plot ####
-mergedmerged<- rbind(merged_data0, merged_data1, merged_dataK)%>%group_by(N, K, model.x)%>%
+mergedmerged<- rbind(merged_data0, merged_data1, merged_datak)%>%group_by(N, K, model.x)%>%
   summarise(
     mean_wpred = mean(pred_prob),
     mean_wtrue = mean(true_prob),
@@ -508,10 +612,10 @@ ggplot(mergedmerged, aes(mean_wpred, mean_wtrue))+
 
 loo_kcorr_h <- fitkcorr_h$loo("log_lik")
 loo_1corr_h <- fit1corr_h$loo("log_lik")
-loo_zero <- zerocorrmod$loo("log_lik")
+loo_zero <- fit0corr_h$loo("log_lik")
 loo_gen_kcorr <- fitkcorrgen$loo("log_lik")
 loo_gen_1corr <- fit1corrgen$loo("log_lik")
-loo_gen_zero <- zerocorrgen$loo("log_lik")
+loo_gen_zero <- fit0corrgen$loo("log_lik")
 
 # LOO Raw Values ####
 
@@ -617,7 +721,7 @@ ggplot(rmse_data, aes(rmse))+
 sdamr::plot_raincloud(rmse_data, rmse, groups= model)
 
 # Cosine Similarity ParticipantxTrial ####
-cos_list<-list(cos0, cos1, cosK, cos0gen, cos1gen, coskgen)
+cos_list<-list(cos0, cos1, cosk, cos0gen, cos1gen, coskgen)
 lapply(cos_list,  function(df) summetrics(data = df, metric = "cosine_sim"))
 participant_cos_rank<- lapply(cos_list,
                               function(df) top_participants(dataset=df, 
@@ -840,7 +944,7 @@ total_metric%>%
 
 sum(total_metric$value[total_metric$metric=="Log-Loss"])
 
-#lapply(total_list, function(x) model_comp(dataset=x))
+lapply(total_list, function(x) model_comp(dataset=x))
 
 metric_summary<- summetrics(total_metric, "value", c("model","hvsg","metric"))
 
@@ -867,5 +971,24 @@ final_ranks<- participant_ranking %>%
             metrics = list(unique(metric)), .groups = "drop")%>%
   arrange(desc(n_groups))
 
+keep_objects <- c(
+  # Merged datasets
+  "total_merge",
+  "melt_hier", "melt_gen",  # Ridgeplot data
+  "total_metric", "final_ranks",  # Summary metrics
   
+  # LOO and PPC results
+  "full_comparison_df", 
+  "PPC_kh", "PPC_1h", "PPC_0h", "PPC_kgen", "PPC_1gen", "PPC_0gen",
+  "p_ev_pairs", "fit_ev_priors"
+)
 
+saveRDS(fitkcorr_h, "fitkcorr_h.rds")
+saveRDS(fit1corr_h, "fit1corr_h.rds")
+saveRDS(fit0corr_h, "fit0corr_h.rds")
+saveRDS(fitkcorrgen, "fitkcorrgen.rds")
+saveRDS(fit1corrgen, "fit1corrgen.rds")
+saveRDS(fit0corrgen, "fit0corrgen.rds")
+
+rm(list = setdiff(ls(), keep_objects))
+gc()
