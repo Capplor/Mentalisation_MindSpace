@@ -16,17 +16,17 @@ y_observed <- as.vector(t(as.matrix(unlist(data_k_0$y))))
 
 # Models####
 
-kcorr_model<-"k_hierarchical_gen.stan" #K Correlation
+kcorr_model<-"k idiosyncratic.stan" #K Correlation
 kcorr_mod <- cmdstan_model( kcorr_model)
-onecorr_model<-"one_hierarchical_gen.stan"
+onecorr_model<-"one idiosyncratic.stan"
 onecorr_mod <- cmdstan_model(onecorr_model)
-ZCcorr_model<-"zero hierarchical gen.stan"
+ZCcorr_model<-"zero idiosyncratic.stan"
 ZCcorr_mod <- cmdstan_model( ZCcorr_model)
-kgencorr_model<-"k general gen.stan"
+kgencorr_model<-"k general.stan"
 kgencorr_mod <- cmdstan_model( kgencorr_model)
-onegencorr_mod<-"one general gen.stan"
+onegencorr_mod<-"one general.stan"
 onegencorr_mod <- cmdstan_model(onegencorr_mod)
-Zgen_model<-"zero general gen.stan"
+Zgen_model<-"zero general.stan"
 Zgen_mod <- cmdstan_model(Zgen_model)
 
 # Model Key ####
