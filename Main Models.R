@@ -904,7 +904,7 @@ final_ranks<- participant_ranking %>%
 
 keep_objects <- c(
   # Merged datasets
-  "total_merge",
+  "total_merge", "merged_data0",
   "melt_hier", "melt_gen",  # Ridgeplot data
   "total_metric", "final_ranks",  # Summary metrics
   
